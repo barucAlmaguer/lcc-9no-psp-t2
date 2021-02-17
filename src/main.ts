@@ -1,9 +1,9 @@
-interface ILinkedListNode<T> {
+export interface ILinkedListNode<T> {
   value: T
   next?: ILinkedListNode<T>
 }
 
-interface ILinkedList<T> {
+export interface ILinkedList<T> {
   head?: ILinkedListNode<T>
   get: (index: number) => ILinkedListNode<T> | undefined
   append: (value: T) => void
@@ -13,7 +13,7 @@ interface ILinkedList<T> {
   toArray: () => T[]
 }
 
-class LinkedList<T> implements ILinkedList<T> {
+export class LinkedList<T> implements ILinkedList<T> {
   head: ILinkedListNode<T>
 
   isEmpty () {
@@ -60,10 +60,29 @@ class LinkedList<T> implements ILinkedList<T> {
   }
 }
 
-const linkedList = new LinkedList<number>()
-linkedList.append(0)
-linkedList.append(1)
-linkedList.append(2)
-linkedList.append(3)
-linkedList.append(4)
-const list = linkedList.toArray()
+export function mean(list: LinkedList<number>): number {
+  let sum = 0
+  let count = 0 
+  let current = list.head
+  while (current) {
+    sum += current.value
+    count += 1
+    current = current.next
+  }
+  if (count = 0) return 0
+  return sum / count
+}
+
+export function stdDeviation(list: LinkedList<number>): number {
+  const avg = mean(list)
+  let n = 0
+  let current = list.head
+  let diffSquaresSum = 0
+  while (current) {
+    const diff = current.value - avg
+    diffSquaresSum += (diff ^ 2)
+    current = current.next
+    n += 1
+  }
+  return Math.sqrt(diffSquaresSum / (n + 1))
+}

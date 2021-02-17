@@ -1,3 +1,6 @@
+"use strict";
+exports.__esModule = true;
+exports.stdDeviation = exports.mean = exports.LinkedList = void 0;
 var LinkedList = /** @class */ (function () {
     function LinkedList() {
     }
@@ -46,12 +49,32 @@ var LinkedList = /** @class */ (function () {
     };
     return LinkedList;
 }());
-var linkedList = new LinkedList();
-linkedList.append(0);
-linkedList.append(1);
-linkedList.append(2);
-linkedList.append(3);
-linkedList.append(4);
-console.log(linkedList.head);
-var list = linkedList.toArray();
-console.log(list);
+exports.LinkedList = LinkedList;
+function mean(list) {
+    var sum = 0;
+    var count = 0;
+    var current = list.head;
+    while (current) {
+        sum += current.value;
+        count += 1;
+        current = current.next;
+    }
+    if (count = 0)
+        return 0;
+    return sum / count;
+}
+exports.mean = mean;
+function stdDeviation(list) {
+    var avg = mean(list);
+    var n = 0;
+    var current = list.head;
+    var diffSquaresSum = 0;
+    while (current) {
+        var diff = current.value - avg;
+        diffSquaresSum += (diff ^ 2);
+        current = current.next;
+        n += 1;
+    }
+    return Math.sqrt(diffSquaresSum / (n + 1));
+}
+exports.stdDeviation = stdDeviation;
