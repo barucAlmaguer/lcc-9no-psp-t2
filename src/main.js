@@ -72,10 +72,12 @@ function stdDeviation(list) {
     var diffSquaresSum = 0;
     while (current) {
         var diff = current.value - avg;
-        diffSquaresSum += (diff ^ 2);
+        diffSquaresSum += (diff * diff);
         current = current.next;
         n += 1;
     }
-    return Math.sqrt(diffSquaresSum / (n + 1));
+    if (diffSquaresSum === 0)
+        return 0;
+    return Math.sqrt(diffSquaresSum / (n - 1));
 }
 exports.stdDeviation = stdDeviation;
