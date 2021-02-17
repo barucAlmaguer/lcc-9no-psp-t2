@@ -3,6 +3,7 @@ exports.__esModule = true;
 exports.stdDeviation = exports.mean = exports.LinkedList = void 0;
 var LinkedList = /** @class */ (function () {
     function LinkedList() {
+        this.head = undefined;
     }
     LinkedList.prototype.isEmpty = function () {
         return !this.head;
@@ -59,7 +60,7 @@ function mean(list) {
         count += 1;
         current = current.next;
     }
-    if (count = 0)
+    if (count === 0)
         return 0;
     return sum / count;
 }

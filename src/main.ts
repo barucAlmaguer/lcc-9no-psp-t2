@@ -14,7 +14,7 @@ export interface ILinkedList<T> {
 }
 
 export class LinkedList<T> implements ILinkedList<T> {
-  head: ILinkedListNode<T>
+  head: ILinkedListNode<T> | undefined = undefined
 
   isEmpty () {
     return !this.head
@@ -69,7 +69,7 @@ export function mean(list: LinkedList<number>): number {
     count += 1
     current = current.next
   }
-  if (count = 0) return 0
+  if (count === 0) return 0
   return sum / count
 }
 
