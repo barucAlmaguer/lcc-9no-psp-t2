@@ -81,3 +81,27 @@ function stdDeviation(list) {
     return Math.sqrt(diffSquaresSum / (n - 1));
 }
 exports.stdDeviation = stdDeviation;
+function main() {
+    console.log('**********************************************************************');
+    console.log('**** UANL FCFM 9no semestre - Estimación de proyectos de software ****');
+    console.log('****    PSP Problema 1: Cálculo de Media y Desviación estándar    ****');
+    console.log('**** Estudiante: Rafael Baruc Almaguer López - Matricula: 1443335 ****');
+    console.log('**********************************************************************');
+    var estimateProxySizes = new LinkedList().fromArray([
+        160, 591, 114, 229, 230, 270, 128, 1657, 624, 1503
+    ]);
+    var developmentHours = new LinkedList().fromArray([
+        15.0, 69.9, 6.5, 22.4, 28.4, 65.9, 19.4, 198.7, 38.8, 138.2
+    ]);
+    // * calculations ProxySizes
+    var meanValue1 = mean(estimateProxySizes);
+    var stdDevValue1 = stdDeviation(estimateProxySizes);
+    // * calculations ProxySizes
+    var meanValue2 = mean(developmentHours);
+    var stdDevValue2 = stdDeviation(developmentHours);
+    console.log('\n\n');
+    console.log('Resultados:');
+    console.log("Media columna 1: " + meanValue1.toFixed(2) + "  ||  Desv std Col1: " + stdDevValue1.toFixed(2));
+    console.log("Media columna 2:  " + meanValue2.toFixed(2) + "  ||  Desv std Col2: " + stdDevValue2.toFixed(2));
+}
+// main()
