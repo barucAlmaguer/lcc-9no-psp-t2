@@ -2,81 +2,208 @@
 /**
 * *****************************************************************************
 * *****************************************************************************
-* Program assignment: <<PROG_##>>
-* Name: <<Developer full name>>
-* uanl_id: <<#######>>
-* email: <<Developer email contact>>
-* date: <<Date when the program development started in format YYYY-MM-DD>>
-* description: <<Short description of program purpose>>
+* Program assignment: LOC counter
+* Name: Rafael Baruc Almaguer López
+* uanl_id: 1443335
+* email: baruc.almaguer@gmail.com
+* date: 2021-02-28
+* description:
+*   This program counts physical LOCs, from this or another program.
+*   You need to pass an argument as the file to analyze like this:
+*   $ yarn main --source="./src/main.ts"
+*   
+*   The output should be a list of blocks detected in the program, along with
+*   the amount of LOCs per block, and the total.
 * *****************************************************************************
 * *****************************************************************************
 */
 
 /**
 * *****************************************************************************
-* SUMMARY OF MAIN FUNCTIONS: **************************************************
+* * SUMMARY OF MAIN FUNCTIONS: ************************************************
 *
 * - FUNCTION - DESCRIPTION
-* - initializeData():
-* - - Extracts the data required for the program to work
-* - processInfo():
-* - - Process information to extract required information
-* - finalizeProcess():
-* - - Prints the results to the desired output and cleans memory if needed
+* - myFunction():
+* - - function description
 */
 
 /**
 * *****************************************************************************
-* EXTERNAL MODULES: ***********************************************************
+* * EXTERNAL MODULES: *********************************************************
 */
-import _ from 'lodash'
+import { Machine, StateMachine, StateSchema, EventObject, interpret } from 'xstate'
+import { parse } from 'ts-command-line-args'
 // ...
 
 /**
 * *****************************************************************************
-* LOCAL MODULES IMPLEMENTATION: ***********************************************
+* * LOCAL MODULES IMPLEMENTATION: *********************************************
 */
 
-// type definitions (may be types / interfaces / classes)
+// * type definitions (may be types / interfaces / classes)
 /**
-* <<InlineTypeDeclaration>> explanation:
-* <<description>>
+* LocContext represents the current extended state of the LOC counter.
+* The extended state keeps state information that is not suitable to store
+* directly as a state of the state machine.
+* This information contains the current LOC count for each block and other
+* state info
 */
-type InlineTypeDeclaration = void
-/**
-* <<InlineUnionDeclaration>> explanation:
-* <<description>>
-*/
-type InlineUnionDeclaration = 1 | 2 | "3" // | ...
-/**
-* <<MultilineTypeDeclaration>> explanation:
-* <<description>>
-*/
-type MultilineTypeDeclaration = {
-  field1: boolean
-  optionalField2?: string
-}
-/**
-* <<MyInterface>> explanation:
-* <<description>>
-*/
-interface MyInterface {
-  // <<if required, inline comment for field description>>
-  field1: string
-  // <<if required, inline comment for field description>>
-  optionalField2?: boolean
+interface LocContext {
+  total: number
+  global: number
+  blocks: {
+    [blockName: string]: number 
+  }
+  currentBlock?: string
+  bracketDepth: number
 }
 
-// Top-level function declarations: -----------------------
-function initializeData(): object {
-  return {}
+/**
+ * The LocStateSchema represents the finite states the LocMachine can be in
+ * at a single time.
+ * Example: The parser may be inside a multiline comment,
+ * or it might be inside a code block, or at the global scope
+ * But only one of those at a time.
+ */
+interface LocStateSchema extends StateSchema<LocContext> {
+  states: {
+    parsing_global: {}
+    parsing_multicomment: {}
+    parsing_block: {}
+    finished: {}
+    finished_with_error: {}
+  }
 }
-function processInfo(data: object): object {
-  return {}
+
+type LocEvent = 
+  | { type: 'EOF_FOUND' }
+  | { type: 'GLOBAL_FOUND' }
+  | { type: 'BLOCK_FOUND' }
+  | { type: 'BLOCK_SECTION' }
+  | { type: 'END_OF_BLOCK_FOUND' }
+  | { type: 'MULTILINE_COMMENT_FOUND' }
+  | { type: 'MULTILINE_END_FOUND' }
+  | { type: 'COMMENT_FOUND' }
+  | { type: 'WHITESPACE_FOUND' }
+
+// Top-level function declarations: -------------------------------------------
+/**
+ * getLocMachine sets up the machine required to keep the state of the
+ * LOC counter, it configures it and returns for the main program to use.
+ */
+export function getLocMachine(): StateMachine<LocContext, LocStateSchema, LocEvent> {
+  const locDefaultContext: LocContext = {
+    total: 0,
+    global: 0,
+    blocks: {
+      // functionX: 0 
+    },
+    currentBlock: null,
+    bracketDepth: 0
+  }
+  const locStateSchema = {
+    parsing_global: {
+      on: {
+        EOF_FOUND: 'finished',
+        GLOBAL_FOUND: {
+          target: 'parsing_global',
+          actions: ['countGlobal', 'countTotal']
+        },
+        BLOCK_FOUND: {
+          target: 'parsing_block',
+          actions: [
+            'initBlock',
+            'resetBracketDepth',
+            'countCurrentBlock',
+            'countTotal'
+          ]
+        },
+        MULTILINE_COMMENT_FOUND: 'parsing_multicomment',
+        COMMENT_FOUND: {
+          target: 'parsing_global'
+        },
+        WHITESPACE_FOUND: {
+          target: 'parsing_global'
+        },
+        END_OF_BLOCK_FOUND: {
+          target: 'finished_with_error'
+        }
+      }
+    },
+    parsing_multicomment: {
+      on: {
+        MULTILINE_COMMENT_SEGMENT_FOUND: {
+          target: 'parsing_multicomment'
+        },
+        WHITESPACE_FOUND: {
+          target: 'parsing_multicomment'
+        },
+        BLOCK_SECTION: {
+          target: 'parsing_multicomment'
+        },
+        END_OF_BLOCK_FOUND: {
+          target: 'parsing_multicomment'
+        },
+        MULTILINE_END_FOUND: [{
+          target: 'parsing_block',
+          cond: 'isInsideBlock'
+        }, {
+          target: 'parsing_global'
+        }],
+        EOF_FOUND: 'finished_with_error'
+      }
+    },
+    parsing_block: {
+      on: {
+        BLOCK_SECTION: {
+          target: 'parsing_block',
+          actions: [
+            'countCurrentBlock',
+            'countTotal',
+            'updateBracketDepth'
+          ]
+        },
+        END_OF_BLOCK_FOUND: [{
+          target: 'parsing_block',
+          actions: [
+            'countCurrentBlock',
+            'countTotal',
+            'updateBracketDepth'
+          ],
+          cond: 'isNestedBlock'
+        }, {
+          target: 'parsing_global',
+          actions: ['clearCurrentBlock']
+        }],
+        MULTILINE_COMMENT_FOUND: 'parsing_multicomment',
+        COMMENT_FOUND: {
+          target: 'parsing_block'
+        },
+        WHITESPACE_FOUND: {
+          target: 'parsing_block'
+        },
+        EOF_FOUND: 'finished_with_error'
+      }
+    },
+    finished: {
+      type: 'final' as const
+    },
+    finished_with_error: {
+      type: 'final' as const
+    }
+  }
+  const guards = {
+    isInsideBlock: (ctx: LocContext) => !!ctx.currentBlock
+  }
+  const locMachineDefinition = {
+    id: 'locCounter',
+    initial: 'parsing_global' as const,
+    context: locDefaultContext,
+    states: locStateSchema
+  }
+  return Machine(locMachineDefinition, { guards })
 }
-function finalizeProcess(process: object): boolean {
-  return true
-}
+
 function main(): void {
   console.log('hi from template!')
 }
