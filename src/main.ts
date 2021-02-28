@@ -31,7 +31,15 @@
 * *****************************************************************************
 * * EXTERNAL MODULES: *********************************************************
 */
-import { Machine, StateMachine, StateSchema, EventObject, interpret } from 'xstate'
+import {
+  Machine,
+  StateMachine,
+  interpret,
+  // types
+  StateSchema,
+  EventObject,
+} from 'xstate'
+import { assign, ImmerAssigner } from '@xstate/immer'
 import { parse } from 'ts-command-line-args'
 // ...
 
@@ -75,18 +83,56 @@ interface LocStateSchema extends StateSchema<LocContext> {
   }
 }
 
-type LocEvent = 
-  | { type: 'EOF_FOUND' }
-  | { type: 'GLOBAL_FOUND' }
-  | { type: 'BLOCK_FOUND' }
-  | { type: 'BLOCK_SECTION' }
-  | { type: 'END_OF_BLOCK_FOUND' }
-  | { type: 'MULTILINE_COMMENT_FOUND' }
-  | { type: 'MULTILINE_END_FOUND' }
-  | { type: 'COMMENT_FOUND' }
-  | { type: 'WHITESPACE_FOUND' }
+interface LocEventPayload {
+  parsedLine: string
+  blockName?: string
+  bracketDepth?: number
+} 
 
+type LocEvent = 
+  | { type: 'EOF_FOUND', payload: LocEventPayload }
+  | { type: 'GLOBAL_FOUND', payload: LocEventPayload }
+  | { type: 'BLOCK_FOUND', payload: LocEventPayload }
+  | { type: 'BLOCK_SECTION', payload: LocEventPayload }
+  | { type: 'END_OF_BLOCK_FOUND', payload: LocEventPayload }
+  | { type: 'MULTILINE_COMMENT_FOUND', payload: LocEventPayload }
+  | { type: 'MULTILINE_END_FOUND', payload: LocEventPayload }
+  | { type: 'COMMENT_FOUND', payload: LocEventPayload }
+  | { type: 'WHITESPACE_FOUND', payload: LocEventPayload }
+
+type LocAction = ImmerAssigner<LocContext, LocEvent>
 // Top-level function declarations: -------------------------------------------
+
+// Machine actions:
+const countGlobal: LocAction = function (context, event) {
+  context.global += 1
+}
+const countTotal: LocAction = function (context, event) {
+  context.total += 1
+}
+const initBlock: LocAction = function (context, event) {
+  if (event.payload.blockName) {
+    context.blocks[event.payload.blockName] = 0
+    context.currentBlock = event.payload.blockName
+  }
+}
+const resetBracketDepth: LocAction = function (context, event) {
+  context.bracketDepth = 0
+}
+const countCurrentBlock: LocAction = function (context, event) {
+  if (context.currentBlock) {
+    context.blocks[context.currentBlock] += 1
+  }
+}
+const clearCurrentBlock: LocAction = function (context, event) {
+  context.currentBlock = null
+}
+const updateBracketDepth: LocAction = function (context, event) {
+  if(event.payload.bracketDepth) {
+    context.bracketDepth += event.payload.bracketDepth
+  }
+}
+
 /**
  * getLocMachine sets up the machine required to keep the state of the
  * LOC counter, it configures it and returns for the main program to use.
@@ -205,7 +251,12 @@ export function getLocMachine(): StateMachine<LocContext, LocStateSchema, LocEve
 }
 
 function main(): void {
-  console.log('hi from template!')
+  console.log('hi from LOC counter!')
+  const locMachine = getLocMachine()
+  const locService = interpret(locMachine)
+  locService.start()
+  // EXAMPLE USAGE:
+  // locService.send({type: 'BLOCK_FOUND', payload: {parsedLine: 'function () {'}})
 }
 
 /**

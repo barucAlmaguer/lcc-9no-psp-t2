@@ -583,6 +583,11 @@
   dependencies:
     "@types/yargs-parser" "*"
 
+"@xstate/immer@^0.2.0":
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/@xstate/immer/-/immer-0.2.0.tgz#4f128947c3cbb3e68357b886485a36852d4e06b3"
+  integrity sha512-ZKwAwS84kfmN108lEtVHw8jztKDiFeaQsTxkOlOghpK1Lr7+13G8HhZZXyN1/pVkplloUUOPMH5EXVtitZDr8w==
+
 abab@^2.0.3:
   version "2.0.5"
   resolved "https://registry.yarnpkg.com/abab/-/abab-2.0.5.tgz#c0b678fb32d60fc1219c784d6a826fe385aeb79a"
@@ -1655,6 +1660,11 @@ iconv-lite@0.4.24:
   integrity sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==
   dependencies:
     safer-buffer ">= 2.1.2 < 3"
+
+immer@^8.0.1:
+  version "8.0.1"
+  resolved "https://registry.yarnpkg.com/immer/-/immer-8.0.1.tgz#9c73db683e2b3975c424fb0572af5889877ae656"
+  integrity sha512-aqXhGP7//Gui2+UrEtvxZxSquQVXTpZ7KDxfCcKAF3Vysvw0CViVaW9RZ1j1xlIYqaaaipBoqdqeibkc18PNvA==
 
 import-local@^3.0.2:
   version "3.0.2"

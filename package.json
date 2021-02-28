@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@types/node": "^14.14.31",
+    "@xstate/immer": "^0.2.0",
+    "immer": "^8.0.1",
     "jest": "^26.6.3",
     "ts-command-line-args": "^1.7.1",
     "ts-jest": "^26.5.1",
