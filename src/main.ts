@@ -31,6 +31,9 @@
 * *****************************************************************************
 * * EXTERNAL MODULES: *********************************************************
 */
+import { createReadStream, existsSync } from 'fs'
+import { createInterface } from 'readline'
+import { join } from 'path'
 import {
   Machine,
   StateMachine,
@@ -38,6 +41,7 @@ import {
   // types
   StateSchema,
   EventObject,
+  InterpreterStatus
 } from 'xstate'
 import { assign, ImmerAssigner } from '@xstate/immer'
 import { parse } from 'ts-command-line-args'
@@ -56,12 +60,16 @@ import { parse } from 'ts-command-line-args'
 * This information contains the current LOC count for each block and other
 * state info
 */
-interface LocContext {
+
+interface LocCount {
   total: number
   global: number
   blocks: {
-    [blockName: string]: number 
+    [blockName: string]: number
   }
+}
+
+interface LocContext extends LocCount {
   currentBlock?: string
   bracketDepth: number
 }
@@ -89,18 +97,24 @@ interface LocEventPayload {
   bracketDepth?: number
 } 
 
-type LocEvent = 
-  | { type: 'EOF_FOUND', payload: LocEventPayload }
-  | { type: 'GLOBAL_FOUND', payload: LocEventPayload }
-  | { type: 'BLOCK_FOUND', payload: LocEventPayload }
-  | { type: 'BLOCK_SECTION', payload: LocEventPayload }
-  | { type: 'END_OF_BLOCK_FOUND', payload: LocEventPayload }
-  | { type: 'MULTILINE_COMMENT_FOUND', payload: LocEventPayload }
-  | { type: 'MULTILINE_END_FOUND', payload: LocEventPayload }
-  | { type: 'COMMENT_FOUND', payload: LocEventPayload }
-  | { type: 'WHITESPACE_FOUND', payload: LocEventPayload }
+type LocEventKind<T> = { type: T, payload: LocEventPayload }
 
-type LocAction = ImmerAssigner<LocContext, LocEvent>
+type LocEventSchema = 
+  | LocEventKind<'EOF_FOUND'>
+  | LocEventKind<'GLOBAL_FOUND'>
+  | LocEventKind<'BLOCK_FOUND'>
+  | LocEventKind<'BLOCK_SECTION'>
+  | LocEventKind<'END_OF_BLOCK_FOUND'>
+  | LocEventKind<'MULTILINE_COMMENT_FOUND'>
+  | LocEventKind<'MULTILINE_END_FOUND'>
+  | LocEventKind<'COMMENT_FOUND'>
+  | LocEventKind<'WHITESPACE_FOUND'>
+
+type LocAction = ImmerAssigner<LocContext, LocEventSchema>
+
+interface LocCounterArgs {
+  source?: string
+}
 // Top-level function declarations: -------------------------------------------
 
 // Machine actions:
@@ -137,7 +151,7 @@ const updateBracketDepth: LocAction = function (context, event) {
  * getLocMachine sets up the machine required to keep the state of the
  * LOC counter, it configures it and returns for the main program to use.
  */
-export function getLocMachine(): StateMachine<LocContext, LocStateSchema, LocEvent> {
+export function getLocMachine(): StateMachine<LocContext, LocStateSchema, LocEventSchema> {
   const locDefaultContext: LocContext = {
     total: 0,
     global: 0,
@@ -241,20 +255,82 @@ export function getLocMachine(): StateMachine<LocContext, LocStateSchema, LocEve
   const guards = {
     isInsideBlock: (ctx: LocContext) => !!ctx.currentBlock
   }
+  const actions = {
+    countGlobal: assign(countGlobal),
+    countTotal: assign(countTotal),
+    initBlock: assign(initBlock),
+    resetBracketDepth: assign(resetBracketDepth),
+    countCurrentBlock: assign(countCurrentBlock),
+    clearCurrentBlock: assign(clearCurrentBlock),
+    updateBracketDepth: assign(updateBracketDepth)
+  }
   const locMachineDefinition = {
     id: 'locCounter',
     initial: 'parsing_global' as const,
     context: locDefaultContext,
     states: locStateSchema
   }
-  return Machine(locMachineDefinition, { guards })
+  return Machine(locMachineDefinition, { guards, actions })
 }
 
-function main(): void {
-  console.log('hi from LOC counter!')
+export function getFilePath(): string {
+  const args = parse<LocCounterArgs>({source: { type: String, optional: true }})
+  const filePath = args.source
+    ? join(process.cwd(), args.source)
+    : __filename
+  return filePath
+}
+
+export function checkIfFileExists(path: string): boolean {
+  try {
+    if (existsSync(path)) {
+      return true
+    }
+  } catch (err) {
+    return false
+  }
+}
+
+export async function getCodeLines(path: string): Promise<string[] | null> {
+  if (!checkIfFileExists(path)) {return null}
+  const lineReader = createInterface({
+    input: createReadStream(path)
+  })
+  let lines: string[] = []
+  lineReader.on('line', (line) => {
+    lines.push(line)
+  })
+  const readerPromise = new Promise<string[]>((resolve) => {
+    lineReader.on('close', () => {
+      resolve(lines)
+    })
+  })
+  return readerPromise
+}
+
+function runLocCounter(lines: string[]): LocCount {
   const locMachine = getLocMachine()
   const locService = interpret(locMachine)
   locService.start()
+  // while(locService.status === InterpreterStatus.Running) {
+
+  // }
+  return {
+    blocks: {},
+    global: 0,
+    total: 0
+  }
+}
+
+function printResult(locCount: LocCount) {
+  console.log(locCount)
+}
+
+async function main() {
+  const filePath = getFilePath()
+  const codeLines = await getCodeLines(filePath)
+  const locCount = runLocCounter(codeLines)
+  printResult(locCount)
   // EXAMPLE USAGE:
   // locService.send({type: 'BLOCK_FOUND', payload: {parsedLine: 'function () {'}})
 }
