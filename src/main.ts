@@ -95,7 +95,22 @@ interface LocEventPayload {
   parsedLine: string
   blockName?: string
   bracketDepth?: number
-} 
+}
+
+type CodeLineType = 
+  | 'GLOBAL'
+  | 'BLOCK_START'
+  | 'BLOCK_END'
+  | 'MULTILINE_COMMENT_START'
+  | 'MULTILINE_COMMENT_BODY'
+  | 'MULTILINE_COMMENT_END'
+  | 'INLINE_COMMENT'
+  | 'WHITESPACE'
+  | 'UNKNOWN'
+
+interface CodeLine extends LocEventPayload {
+  type: CodeLineType
+}
 
 type LocEventKind<T> = { type: T, payload: LocEventPayload }
 
@@ -308,22 +323,71 @@ export async function getCodeLines(path: string): Promise<string[] | null> {
   return readerPromise
 }
 
+// magic happens here:
+function parseLine (line: string): CodeLine {
+  const multilineStartRegex = /^\s*\/\*.*/
+  const multilineEndRegex = /.*\*\/\s*/
+  const whitespaceRegex = /^\s*$/
+  const blockStartRegex = /^\s*function {0,1}([a-zA-Z]+\w*){0,1} {0,1}\( {0,1}[\s\S]* {0,1}\) {\s*$/
+  const blockEndRegex = /^\s*}\s*/
+  if (line.match(whitespaceRegex)) {
+    return  { type: 'WHITESPACE', parsedLine: line }
+  } else if (line.match(multilineStartRegex)) {
+    return { type: 'MULTILINE_COMMENT_START', parsedLine: line }
+  } else if (line.match(multilineEndRegex)) {
+    return { type: 'MULTILINE_COMMENT_END', parsedLine: line }
+  } else if (line.match(blockStartRegex)) {
+    return { type: 'BLOCK_START', parsedLine: line }
+  } else if (line.match(blockEndRegex)) {
+    return { type: 'BLOCK_END', parsedLine: line }
+  }
+  return { type: 'UNKNOWN', parsedLine: line }
+}
+
+function removeInlineComments(line: string): string {
+  return line.split('//')[0]
+}
+
 function runLocCounter(lines: string[]): LocCount {
   const locMachine = getLocMachine()
   const locService = interpret(locMachine)
   locService.start()
-  // while(locService.status === InterpreterStatus.Running) {
-
-  // }
+  lines.forEach((line, i) => {
+    const codeLine = parseLine(removeInlineComments(line))
+    console.log(`${i}: ${codeLine.type}`)
+  })
   return {
-    blocks: {},
-    global: 0,
-    total: 0
+    blocks: {
+      test: 10,
+      test2: 20,
+      blablaTest10: 30
+    },
+    global: 15,
+    total: 75
   }
 }
 
+interface LocResult {
+  block: string
+  size: number
+}
 function printResult(locCount: LocCount) {
-  console.log(locCount)
+  let date = new Date()
+  const offset = date.getTimezoneOffset()
+  date = new Date(date.getTime() - (offset * 60 * 1000))
+  const dateString = date.toISOString().split('T')[0]
+  let tabularResults: LocResult[] = []
+  tabularResults.push({block: 'global', size: locCount.global})
+  Object.keys(locCount.blocks).forEach((key) => {
+    tabularResults.push({ block: key, size: locCount.blocks[key] })
+  })
+  tabularResults.push({ block: 'total', size: locCount.total })
+  console.log('************************************************')
+  console.log(`FCFM UANL [${dateString}]`)
+  console.log('PSP PROBLEMA 2: CALCULO DE LOC PARA LENGUAJE TYPESCRIPT')
+  console.log('RESULTADOS DE CONTEO DE LOC:')
+  console.log('------------------------------------------------')
+  console.table(tabularResults)
 }
 
 async function main() {
