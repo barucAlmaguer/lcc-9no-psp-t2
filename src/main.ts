@@ -64,9 +64,7 @@ import { parse } from 'ts-command-line-args'
 interface LocCount {
   total: number
   global: number
-  blocks: {
-    [blockName: string]: number
-  }
+  blocks: { [blockName: string]: number }
 }
 
 interface LocContext extends LocCount {
@@ -99,6 +97,10 @@ interface LocEventPayload {
 
 type CodeLineType = 
   | 'GLOBAL'
+  | 'STATEMENT'
+  | 'ASSIGNMENT'
+  | 'CONTROL_STRUCT'
+  | 'TYPE_DECLARATION'
   | 'BLOCK_START'
   | 'BLOCK_END'
   | 'MULTILINE_COMMENT_START'
@@ -166,7 +168,8 @@ const updateBracketDepth: LocAction = function (context, event) {
  * getLocMachine sets up the machine required to keep the state of the
  * LOC counter, it configures it and returns for the main program to use.
  */
-export function getLocMachine(): StateMachine<LocContext, LocStateSchema, LocEventSchema> {
+type LocStateMachine = StateMachine<LocContext, LocStateSchema, LocEventSchema>
+function getLocMachine(): LocStateMachine {
   const locDefaultContext: LocContext = {
     total: 0,
     global: 0,
@@ -288,15 +291,13 @@ export function getLocMachine(): StateMachine<LocContext, LocStateSchema, LocEve
   return Machine(locMachineDefinition, { guards, actions })
 }
 
-export function getFilePath(): string {
+function getFilePath(): string {
   const args = parse<LocCounterArgs>({source: { type: String, optional: true }})
-  const filePath = args.source
-    ? join(process.cwd(), args.source)
-    : __filename
+  const filePath = args.source ? join(process.cwd(), args.source) : __filename
   return filePath
 }
 
-export function checkIfFileExists(path: string): boolean {
+function checkIfFileExists(path: string): boolean {
   try {
     if (existsSync(path)) {
       return true
@@ -306,7 +307,7 @@ export function checkIfFileExists(path: string): boolean {
   }
 }
 
-export async function getCodeLines(path: string): Promise<string[] | null> {
+async function getCodeLines(path: string): Promise<string[] | null> {
   if (!checkIfFileExists(path)) {return null}
   const lineReader = createInterface({
     input: createReadStream(path)
@@ -323,23 +324,68 @@ export async function getCodeLines(path: string): Promise<string[] | null> {
   return readerPromise
 }
 
+type CodeLinePattern = {
+  expr: RegExp,
+  type: CodeLineType,
+  metadata?: (line: string) => LocEventPayload
+}
+
 // magic happens here:
 function parseLine (line: string): CodeLine {
-  const multilineStartRegex = /^\s*\/\*.*/
-  const multilineEndRegex = /.*\*\/\s*/
+  const multilineCommentStartRegex = /^\s*\/\*.*/
+  const multilineCommentBodyRegex = /^ *\* */
+  const multilineCommentEndRegex = /.*\*\/\s*/
   const whitespaceRegex = /^\s*$/
-  const blockStartRegex = /^\s*function {0,1}([a-zA-Z]+\w*){0,1} {0,1}\( {0,1}[\s\S]* {0,1}\) {\s*$/
-  const blockEndRegex = /^\s*}\s*/
+  const returnRegex = /^ *return/
+  const ifRegex = / *(else )?if ?\(/
+  const tryRegex = /^ *try ?{/
+  const blockStartRegex = /^(async)?\s*function ?([a-zA-Z]+\w*)? ?\( ?[\s\S]* ?\)(: ?\w+)? {\s*$/
+  const blockEndRegex = /^\s*(}|\])\s*/
+  const functionCallRegex = /^ *(\w+\.)?\w+\((((\w|.)+|"\w+"|'[\s\S]+'|`[\s\S]+`)( *\, *(\w|.)+)*)?\)/
+  const importStartRegex = /^import +{/
+  const importEndRegex = /\s*(}|\w+) +from ("\w+"|'\w+')/
+  const variableAssignRegex = / *(const|let|var)? *\w+(.\w+|\[\w+(.\w+)+\])+ *(\+|\*|\-)?= */
+  const objectShortAssignRegex = /^ *(\w+|"\w+"|'\w+'),?\s*$/
+  const objectFullAssignRegex = / *(\w+|"\w+"|'\w+')\?? ?:/
+  const interfaceStartRegex = /interface \w+(<\w+>)? +(extends \w+(<\w+>)? +)?{/
+  const typeDeclarationRegex = /^type \w+ =/
+  const typeUnionSegmentRegex = /^ *\| (\w+|"\w+"|'\w+')/ 
   if (line.match(whitespaceRegex)) {
     return  { type: 'WHITESPACE', parsedLine: line }
-  } else if (line.match(multilineStartRegex)) {
-    return { type: 'MULTILINE_COMMENT_START', parsedLine: line }
-  } else if (line.match(multilineEndRegex)) {
+  } else if (line.match(multilineCommentStartRegex)) {
+    return { type: 'MULTILINE_COMMENT_START', parsedLine: line}
+  } else if (line.match(multilineCommentEndRegex)) {
     return { type: 'MULTILINE_COMMENT_END', parsedLine: line }
+  } else if (line.match(multilineCommentBodyRegex)) {
+    return { type: 'MULTILINE_COMMENT_BODY', parsedLine: line }
+  } else if (line.match(returnRegex)) {
+    return { type: 'STATEMENT', parsedLine: line }
+  } else if (line.match(ifRegex)) {
+    return { type: 'CONTROL_STRUCT', parsedLine: line }
+  } else if (line.match(tryRegex)) {
+    return { type: 'CONTROL_STRUCT', parsedLine: line }
+  } else if (line.match(interfaceStartRegex)) {
+    return { type: 'TYPE_DECLARATION', parsedLine: line }
+  } else if (line.match(variableAssignRegex)) {
+    return { type: 'ASSIGNMENT', parsedLine: line }
+  } else if (line.match(objectShortAssignRegex)) {
+    return { type: 'ASSIGNMENT', parsedLine: line }
+  } else if (line.match(objectFullAssignRegex)) {
+    return { type: 'ASSIGNMENT', parsedLine: line }
   } else if (line.match(blockStartRegex)) {
     return { type: 'BLOCK_START', parsedLine: line }
   } else if (line.match(blockEndRegex)) {
     return { type: 'BLOCK_END', parsedLine: line }
+  } else if (line.match(functionCallRegex)) {
+    return { type: 'STATEMENT', parsedLine: line }
+  } else if (line.match(importStartRegex)) {
+    return { type: 'STATEMENT', parsedLine: line }
+  } else if (line.match(importEndRegex)) {
+    return { type: 'STATEMENT', parsedLine: line }
+  } else if (line.match(typeDeclarationRegex)) {
+    return { type: 'TYPE_DECLARATION', parsedLine: line }
+  } else if (line.match(typeUnionSegmentRegex)) {
+    return { type: 'TYPE_DECLARATION', parsedLine: line }
   }
   return { type: 'UNKNOWN', parsedLine: line }
 }
@@ -352,10 +398,13 @@ function runLocCounter(lines: string[]): LocCount {
   const locMachine = getLocMachine()
   const locService = interpret(locMachine)
   locService.start()
+  let unknowns = 0
   lines.forEach((line, i) => {
     const codeLine = parseLine(removeInlineComments(line))
-    console.log(`${i}: ${codeLine.type}`)
+    unknowns += codeLine.type === 'UNKNOWN' ? 1 : 0
+    console.log(`${i + 1}: ${codeLine.type}`)
   })
+  if (unknowns) console.log(`unknown lines count: ${unknowns}`)
   return {
     blocks: {
       test: 10,
@@ -406,4 +455,4 @@ async function main() {
 
 main()
 
-/** THIS LINE IS LEFT BLANK INTENTIONALLY, DO NOT REMOVE: */
+// THIS LINE IS LEFT BLANK INTENTIONALLY, DO NOT REMOVE:
