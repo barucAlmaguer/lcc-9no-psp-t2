@@ -159,6 +159,7 @@ const clearCurrentBlock: LocAction = function (context, event) {
   context.currentBlock = null
 }
 const updateBracketDepth: LocAction = function (context, event) {
+  console.log(`updating bracket depth: ${event.payload.bracketDepth}`)
   if(event.payload.bracketDepth) {
     context.bracketDepth += event.payload.bracketDepth
   }
@@ -193,7 +194,7 @@ function getLocMachine(): LocStateMachine {
             'initBlock',
             'resetBracketDepth',
             'countCurrentBlock',
-            'countTotal'
+            'countTotal',
           ]
         },
         MULTILINE_COMMENT_FOUND: 'parsing_multicomment',
@@ -204,8 +205,9 @@ function getLocMachine(): LocStateMachine {
           target: 'parsing_global'
         },
         END_OF_BLOCK_FOUND: {
-          target: 'finished_with_error'
-        }
+          target: 'parsing_global',
+          actions: ['countGlobal', 'countTotal']
+        },
       }
     },
     parsing_multicomment: {
@@ -233,7 +235,7 @@ function getLocMachine(): LocStateMachine {
     },
     parsing_block: {
       on: {
-        BLOCK_SECTION: {
+        GLOBAL_FOUND: {
           target: 'parsing_block',
           actions: [
             'countCurrentBlock',
@@ -271,7 +273,8 @@ function getLocMachine(): LocStateMachine {
     }
   }
   const guards = {
-    isInsideBlock: (ctx: LocContext) => !!ctx.currentBlock
+    isInsideBlock: (ctx: LocContext) => !!ctx.currentBlock,
+    isNestedBlock: (ctx: LocContext) => ctx.currentBlock && ctx.bracketDepth > 0
   }
   const actions = {
     countGlobal: assign(countGlobal),
@@ -332,19 +335,20 @@ type CodeLinePattern = {
 
 // magic happens here:
 function parseLine (line: string): CodeLine {
+  const variableDeclarationRegex = /^ *(const|let|var) */
   const multilineCommentStartRegex = /^\s*\/\*.*/
   const multilineCommentBodyRegex = /^ *\* */
   const multilineCommentEndRegex = /.*\*\/\s*/
   const whitespaceRegex = /^\s*$/
   const returnRegex = /^ *return/
-  const ifRegex = / *(else )?if ?\(/
+  const ifRegex = / *((switch)|((else )?if)) ?\(/
   const tryRegex = /^ *try ?{/
-  const blockStartRegex = /^(async)?\s*function ?([a-zA-Z]+\w*)? ?\( ?[\s\S]* ?\)(: ?\w+)? {\s*$/
+  const blockStartRegex = /^ *((const|let|var) \w+(: *\w+)? *=)? *(async)?\s*function ?([a-zA-Z]+\w*)? ?\( ?[\s\S]* ?\)/
   const blockEndRegex = /^\s*(}|\])\s*/
   const functionCallRegex = /^ *(\w+\.)?\w+\((((\w|.)+|"\w+"|'[\s\S]+'|`[\s\S]+`)( *\, *(\w|.)+)*)?\)/
   const importStartRegex = /^import +{/
   const importEndRegex = /\s*(}|\w+) +from ("\w+"|'\w+')/
-  const variableAssignRegex = / *(const|let|var)? *\w+(.\w+|\[\w+(.\w+)+\])+ *(\+|\*|\-)?= */
+  const variableAssignRegex = / *\w+(.\w+|\[\w+(.\w+)+\])+ *(\+|\*|\-)?= */
   const objectShortAssignRegex = /^ *(\w+|"\w+"|'\w+'),?\s*$/
   const objectFullAssignRegex = / *(\w+|"\w+"|'\w+')\?? ?:/
   const interfaceStartRegex = /interface \w+(<\w+>)? +(extends \w+(<\w+>)? +)?{/
@@ -352,6 +356,10 @@ function parseLine (line: string): CodeLine {
   const typeUnionSegmentRegex = /^ *\| (\w+|"\w+"|'\w+')/ 
   if (line.match(whitespaceRegex)) {
     return  { type: 'WHITESPACE', parsedLine: line }
+  } else if (line.match(blockStartRegex)) {
+    return { type: 'BLOCK_START', parsedLine: line }
+  } else if (line.match(variableDeclarationRegex)) {
+    return { type: 'ASSIGNMENT', parsedLine: line }
   } else if (line.match(multilineCommentStartRegex)) {
     return { type: 'MULTILINE_COMMENT_START', parsedLine: line}
   } else if (line.match(multilineCommentEndRegex)) {
@@ -372,8 +380,6 @@ function parseLine (line: string): CodeLine {
     return { type: 'ASSIGNMENT', parsedLine: line }
   } else if (line.match(objectFullAssignRegex)) {
     return { type: 'ASSIGNMENT', parsedLine: line }
-  } else if (line.match(blockStartRegex)) {
-    return { type: 'BLOCK_START', parsedLine: line }
   } else if (line.match(blockEndRegex)) {
     return { type: 'BLOCK_END', parsedLine: line }
   } else if (line.match(functionCallRegex)) {
@@ -394,16 +400,80 @@ function removeInlineComments(line: string): string {
   return line.split('//')[0]
 }
 
+'async function getCodeLines(path: string): Promise<string[] | null> {'
+function getBlockName(line: string): string {
+  const varFunctionRegex = / *(const|let|var) (\w+)/
+  const regularFunctionRegex = / *function (\w+)/
+  const isAnonymus = line.trim().match(/(const|let|var)/)
+  const name = !isAnonymus ? line.match(regularFunctionRegex)[1] : line.match(varFunctionRegex)[2]
+  return name
+}
+
+function getBracketNesting(parsedLine) {
+  const plus = (parsedLine.match(/{/g) || []).length
+  const sub = (parsedLine.match(/}/g) || []).length
+  console.log(`bracket nesting: ${plus - sub}`)
+  return plus - sub
+}
+
+function getLocEvent(codeLine: CodeLine): LocEventSchema {
+  const { parsedLine } = codeLine
+  switch (codeLine.type){
+    case 'MULTILINE_COMMENT_START':
+      return { type: 'MULTILINE_COMMENT_FOUND', payload: { parsedLine } }
+    case 'MULTILINE_COMMENT_BODY':
+      return { type: 'COMMENT_FOUND', payload: { parsedLine } }
+    case 'MULTILINE_COMMENT_END':
+      return { type: 'MULTILINE_END_FOUND', payload: { parsedLine } }
+    case 'INLINE_COMMENT':
+      return { type: 'COMMENT_FOUND', payload: { parsedLine } }
+    case 'WHITESPACE':
+      return { type: 'WHITESPACE_FOUND', payload: { parsedLine } }
+    case 'BLOCK_START':
+      return {
+          type: 'BLOCK_FOUND', payload: {
+          parsedLine,
+          blockName: getBlockName(parsedLine),
+          bracketDepth: getBracketNesting(parsedLine)
+        }
+      }
+    case 'TYPE_DECLARATION':
+      return { type: 'GLOBAL_FOUND', payload: { parsedLine, bracketDepth: getBracketNesting(parsedLine) }, }
+    case 'BLOCK_END':
+      return { type: 'END_OF_BLOCK_FOUND', payload: { parsedLine, bracketDepth: getBracketNesting(parsedLine) } }
+    case 'GLOBAL':
+    case 'ASSIGNMENT':
+    case 'CONTROL_STRUCT':
+    case 'STATEMENT':
+      return { type: 'GLOBAL_FOUND', payload: {
+        parsedLine,
+        bracketDepth: getBracketNesting(parsedLine)
+        }
+      }
+    
+    case 'UNKNOWN':
+    default:
+      return { type: 'EOF_FOUND', payload: { parsedLine } }
+  }
+}
+
 function runLocCounter(lines: string[]): LocCount {
   const locMachine = getLocMachine()
   const locService = interpret(locMachine)
+  locService.onTransition((state) => {
+    console.log(`state: ${state.value}. count: ${state.context.total}. nested: ${state.context.bracketDepth}`)
+  })
   locService.start()
   let unknowns = 0
   lines.forEach((line, i) => {
     const codeLine = parseLine(removeInlineComments(line))
     unknowns += codeLine.type === 'UNKNOWN' ? 1 : 0
     console.log(`${i + 1}: ${codeLine.type}`)
+    const locEvent = getLocEvent(codeLine)
+    locService.send(locEvent)
   })
+  locService.send({type: 'EOF_FOUND', payload: {parsedLine: ''}})
+  console.log(locService.state.context)
   if (unknowns) console.log(`unknown lines count: ${unknowns}`)
   return {
     blocks: {
