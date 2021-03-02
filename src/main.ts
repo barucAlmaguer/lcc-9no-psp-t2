@@ -159,7 +159,6 @@ const clearCurrentBlock: LocAction = function (context, event) {
   context.currentBlock = null
 }
 const updateBracketDepth: LocAction = function (context, event) {
-  console.log(`updating bracket depth: ${event.payload.bracketDepth}`)
   if(event.payload.bracketDepth) {
     context.bracketDepth += event.payload.bracketDepth
   }
@@ -412,7 +411,6 @@ function getBlockName(line: string): string {
 function getBracketNesting(parsedLine) {
   const plus = (parsedLine.match(/{/g) || []).length
   const sub = (parsedLine.match(/}/g) || []).length
-  console.log(`bracket nesting: ${plus - sub}`)
   return plus - sub
 }
 
@@ -460,30 +458,21 @@ function getLocEvent(codeLine: CodeLine): LocEventSchema {
 function runLocCounter(lines: string[]): LocCount {
   const locMachine = getLocMachine()
   const locService = interpret(locMachine)
-  locService.onTransition((state) => {
-    console.log(`state: ${state.value}. count: ${state.context.total}. nested: ${state.context.bracketDepth}`)
-  })
+  // locService.onTransition((state) => {
+  //   console.log(`state: ${state.value}. count: ${state.context.total}. nested: ${state.context.bracketDepth}`)
+  // })
   locService.start()
   let unknowns = 0
   lines.forEach((line, i) => {
+    if (locService.status !== InterpreterStatus.Running) { return } // nothing to interpret anymore
     const codeLine = parseLine(removeInlineComments(line))
     unknowns += codeLine.type === 'UNKNOWN' ? 1 : 0
-    console.log(`${i + 1}: ${codeLine.type}`)
     const locEvent = getLocEvent(codeLine)
     locService.send(locEvent)
   })
   locService.send({type: 'EOF_FOUND', payload: {parsedLine: ''}})
-  console.log(locService.state.context)
   if (unknowns) console.log(`unknown lines count: ${unknowns}`)
-  return {
-    blocks: {
-      test: 10,
-      test2: 20,
-      blablaTest10: 30
-    },
-    global: 15,
-    total: 75
-  }
+  return locService.state.context
 }
 
 interface LocResult {
