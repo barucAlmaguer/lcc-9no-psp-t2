@@ -463,8 +463,9 @@ function runLocCounter(lines: string[]): LocCount {
   // })
   locService.start()
   let unknowns = 0
-  lines.forEach((line, i) => {
-    if (locService.status !== InterpreterStatus.Running) { return } // nothing to interpret anymore
+  // "some" function works as a .forEach with Break capability
+  lines.some((line, i) => {
+    if (locService.status !== InterpreterStatus.Running) { return true } // nothing to interpret anymore
     const codeLine = parseLine(removeInlineComments(line))
     unknowns += codeLine.type === 'UNKNOWN' ? 1 : 0
     const locEvent = getLocEvent(codeLine)
