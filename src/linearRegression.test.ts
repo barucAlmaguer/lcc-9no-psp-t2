@@ -16,7 +16,13 @@ it('estimates correctly "estimated proxy size" vs "actual added and modified siz
   expect(r).toBeCloseTo(0.9545)
   expect(r2).toBeCloseTo(0.9111)
   expect(yk).toBeCloseTo(644.429)
-  console.table([{ b0, b1, r, r2, yk }])
+  console.table([{
+    b0: b0.toFixed(4),
+    b1: b1.toFixed(4),
+    r: r.toFixed(4),
+    r2: r2.toFixed(4),
+    yk: yk.toFixed(4)
+  }])
 })
 
 it('estimates correctly "estimated proxy size" and "actual development time"', () => {
@@ -33,7 +39,13 @@ it('estimates correctly "estimated proxy size" and "actual development time"', (
   expect(r).toBeCloseTo(0.9333)
   expect(r2).toBeCloseTo(0.8711)
   expect(yk).toBeCloseTo(60.858)
-  console.table([{ b0, b1, r, r2, yk }])
+  console.table([{
+    b0: b0.toFixed(4),
+    b1: b1.toFixed(4),
+    r: r.toFixed(4),
+    r2: r2.toFixed(4),
+    yk: yk.toFixed(4)
+  }])
 })
 
 it('estimates correctly "plan added and modified size" and "actual added and modified size"', () => {
@@ -50,7 +62,13 @@ it('estimates correctly "plan added and modified size" and "actual added and mod
   expect(r).toBeCloseTo(0.9631)
   expect(r2).toBeCloseTo(0.9276)
   expect(yk).toBeCloseTo(528.4294)
-  console.table([{ b0, b1, r, r2, yk }])
+  console.table([{
+    b0: b0.toFixed(4),
+    b1: b1.toFixed(4),
+    r: r.toFixed(4),
+    r2: r2.toFixed(4),
+    yk: yk.toFixed(4)
+  }])
 })
 
 it('estimates correctly "plan added and modified size" and "actual development time"', () => {
@@ -67,5 +85,11 @@ it('estimates correctly "plan added and modified size" and "actual development t
   expect(r).toBeCloseTo(0.9480)
   expect(r2).toBeCloseTo(0.8988)
   expect(yk).toBeCloseTo(49.4994)
-  console.table([{ b0, b1, r, r2, yk }])
+  console.table([{
+    b0: b0.toFixed(4),
+    b1: b1.toFixed(4),
+    r: r.toFixed(4),
+    r2: r2.toFixed(4),
+    yk: yk.toFixed(4)
+  }])
 })
