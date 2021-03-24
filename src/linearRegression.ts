@@ -84,30 +84,30 @@ function printResult(regression: ILinearRegressionResult) {
   const offset = date.getTimezoneOffset()
   date = new Date(date.getTime() - (offset * 60 * 1000))
   const dateString = date.toISOString().split('T')[0]
-  let tabularResults: ILinearRegressionResult
+  // let tabularResults: ILinearRegressionResult
   // TODO: print results in table
   console.log('************************************************')
   console.log(`FCFM UANL [${dateString}]`)
   console.log('PSP PROBLEMA 2: CALCULO DE LOC PARA LENGUAJE TYPESCRIPT')
   console.log('RESULTADOS DE CONTEO DE LOC:')
   console.log('------------------------------------------------')
-  console.table(tabularResults)
+  // console.table(tabularResults)
 }
 
-async function main() {
-  const filePath = getFilePath()
-  const codeLines = await getCodeLines(filePath)
-  const locCount = runLocCounter(codeLines)
-  printResult(locCount)
-  // EXAMPLE USAGE:
-  // locService.send({type: 'BLOCK_FOUND', payload: {parsedLine: 'function () {'}})
-}
+// async function main() {
+//   const filePath = getFilePath()
+//   const codeLines = await getCodeLines(filePath)
+//   const locCount = runLocCounter(codeLines)
+//   printResult(locCount)
+//   // EXAMPLE USAGE:
+//   // locService.send({type: 'BLOCK_FOUND', payload: {parsedLine: 'function () {'}})
+// }
 
 /**
 * *****************************************************************************
 * START OF PROGRAM EXECUTION **************************************************
 */
 
-main()
+// main()
 
 // THIS LINE IS LEFT BLANK INTENTIONALLY, DO NOT REMOVE:
