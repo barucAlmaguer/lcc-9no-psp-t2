@@ -47,6 +47,7 @@ it('calculates correctly the relative size for LOC/method', () => {
   expect(relativeRanges.m).toBeCloseTo(expectedRelativeRanges.m)
   expect(relativeRanges.l).toBeCloseTo(expectedRelativeRanges.l)
   expect(relativeRanges.vl).toBeCloseTo(expectedRelativeRanges.vl)
+  printRelativeSizeTable(relativeRanges)
 })
 
 it('calculates correctly the relative size for chapters', () => {
@@ -88,4 +89,5 @@ it('calculates correctly the relative size for chapters', () => {
   expect(relativeRanges.m).toBeCloseTo(expectedRelativeRanges.m)
   expect(relativeRanges.l).toBeCloseTo(expectedRelativeRanges.l)
   expect(relativeRanges.vl).toBeCloseTo(expectedRelativeRanges.vl)
+  printRelativeSizeTable(relativeRanges)
 })

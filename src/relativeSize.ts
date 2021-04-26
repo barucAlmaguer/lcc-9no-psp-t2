@@ -51,46 +51,76 @@ export interface RelativeRanges {
 }
 
 // * Main methods *************************************************************
+
 export function normalizeSizeInput(input: RelativeSizeInput[]): number[] {
-  throw new Error('Not implemented')
+  const normalizedSizeInput = input.map((item: RelativeSizeInput) => (
+    item.partSize / (item.partNumItems ?? 1)
+  ))
+  return normalizedSizeInput
 }
+
 export function normalizeLogSizeInput(input: number[]): number[]  {
-  throw new Error('Not implemented')
+  const logSizeInput = input.map((input) => (
+    Math.log(input)
+  ))
+  return logSizeInput
 }
+
 export function calcAverage(values: number[]): number {
-  throw new Error('Not implemented')
+  const valuesSum = values.reduce((sum, current) => {
+    return sum + current
+  }, 0)
+  return valuesSum / values.length
 }
+
 export function calcVariance(logValues: number[], average: number): number {
-  throw new Error('Not implemented')
+  const sumSquareDiffs = logValues.reduce((sum, current) => {
+    const squareDiff = Math.pow((current - average), 2)
+    return sum + squareDiff
+  }, 0)
+  const nMinus1 = (logValues.length - 1)
+  return sumSquareDiffs / nMinus1
 }
+
 export function calcStdDeviation(variance: number): number {
-  throw new Error('Not implemented')
+  return Math.sqrt(variance)
 }
+
 export function calcRelativeLogRanges(average: number, stdDev: number ): RelativeRanges {
-  throw new Error('Not implemented')
+  return {
+    vs: average - (2 * stdDev),
+    s: average - (1 * stdDev),
+    m: average,
+    l: average + (1 * stdDev),
+    vl: average + (2 * stdDev)
+  }
 }
+
 export function calcNormalRelativeRanges(ranges: RelativeRanges): RelativeRanges {
-  throw new Error('Not implemented')
+  return {
+    vs: Math.exp(ranges.vs),
+    s: Math.exp(ranges.s),
+    m: Math.exp(ranges.m),
+    l: Math.exp(ranges.l),
+    vl: Math.exp(ranges.vl)
+  }
 }
+
 export function printRelativeSizeTable(ranges: RelativeRanges) {
-  throw new Error('Not implemented')
-}
-
-
-function printResult(ranges: RelativeRanges) {
-  throw new Error('Not implemented')
   let date = new Date()
   const offset = date.getTimezoneOffset()
   date = new Date(date.getTime() - (offset * 60 * 1000))
   const dateString = date.toISOString().split('T')[0]
-  // let tabularResults: ILinearRegressionResult
   // TODO: print results in table
-  console.log('************************************************')
-  console.log(`FCFM UANL [${dateString}]`)
-  console.log('PSP PROBLEMA 2: CALCULO DE LOC PARA LENGUAJE TYPESCRIPT')
-  console.log('RESULTADOS DE CONTEO DE LOC:')
-  console.log('------------------------------------------------')
-  // console.table(tabularResults)
+  console.log(`************************************************
+  FCFM UANL [${dateString}]
+  ALUMNO: Rafael Baruc Almaguer López
+  MATRICULA: 1443335
+  PSP PROBLEMA 4: ESTIMACION DE TAMAÑO RELATIVO
+  RESULTADOS DE ESTIMACION:
+  ------------------------------------------------
+  `)
+  console.table(ranges)
 }
 
 // async function main() {
@@ -98,8 +128,6 @@ function printResult(ranges: RelativeRanges) {
 //   const codeLines = await getCodeLines(filePath)
 //   const locCount = runLocCounter(codeLines)
 //   printResult(locCount)
-//   // EXAMPLE USAGE:
-//   // locService.send({type: 'BLOCK_FOUND', payload: {parsedLine: 'function () {'}})
 // }
 
 /**
