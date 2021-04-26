@@ -1,6 +1,5 @@
 
-import { LinkedList } from './LinkedList'
-import { linearRegression, calcBeta0, calcBeta1, calcR, calcR2, zip } from './linearRegression'
+import { linearRegression, calcBeta0, calcBeta1, calcR, calcR2, zip } from './relativeSize'
 
 it('estimates correctly "estimated proxy size" vs "actual added and modified size"', () => {
   const proxy = new LinkedList<number>().fromArray([130, 650, 99, 150, 128, 302, 95, 945, 368, 961])

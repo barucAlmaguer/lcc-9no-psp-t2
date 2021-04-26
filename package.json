@@ -19,7 +19,7 @@
     "xstate": "^4.16.2"
   },
   "scripts": {
-    "main": "ts-node src/main.ts",
-    "test": "yarn build && jest"
+    "main": "ts-node src/relativeSize.ts",
+    "test": "jest"
   }
 }
